@@ -1,20 +1,17 @@
-
-name: Healthcare Infrastructure Security
+name: Infrastructure Security Checks
 
 on:
   push:
     branches: ["main"]
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  security-scan:
-    name: Check infrastructure security
+  mandatory-security-gate:
+    name: Enforce mandatory S3 privacy controls
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -24,11 +21,55 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Checkov
-        run: python -m pip install checkov
+      - name: Install pinned Checkov
+        run: python -m pip install --disable-pip-version-check checkov==3.3.29
 
-      - name: Scan required security checks
-        run: >
-          checkov -d examples/secure
-          --framework terraform
-          --check CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57
+      - name: Scan secure Terraform example
+        run: |
+          checkov \
+            -d examples/secure \
+            --framework terraform \
+            --external-checks-dir custom_checks \
+            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_145,CKV2_AWS_6,CKV_AWS_999
+
+  negative-test:
+    name: Prove the insecure example is rejected
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Checkov
+        run: python -m pip install --disable-pip-version-check checkov==3.3.29
+
+      - name: Verify Checkov rejects the intentionally insecure example
+        shell: bash
+        run: |
+          set +e
+          checkov \
+            -d examples/insecure \
+            --framework terraform \
+            --external-checks-dir custom_checks \
+            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_145,CKV2_AWS_6,CKV_AWS_999 \
+            > insecure-scan.log 2>&1
+          scan_status=$?
+          set -e
+
+          cat insecure-scan.log
+
+          if [ "$scan_status" -eq 0 ]; then
+            echo "::error::The intentionally insecure Terraform example unexpectedly passed the mandatory checks."
+            exit 1
+          fi
+
+          if ! grep -Eiq "Failed checks: [1-9]|Failed Checks: [1-9]" insecure-scan.log; then
+            echo "::error::Checkov exited unsuccessfully, but no failed-check summary was found. Treating this as a scan/tool error, not a successful negative test."
+            exit 1
+          fi
+
+          echo "Expected result confirmed: Checkov rejected the insecure example."
