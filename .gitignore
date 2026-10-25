@@ -1,4 +1,3 @@
-
 .venv/
 venv/
 __pycache__/
@@ -18,3 +17,9 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Guardian runtime reports
+reports/*.json
+
+# Local runtime artifacts
+guardian/__pycache__/
