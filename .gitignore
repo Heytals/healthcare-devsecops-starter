@@ -23,3 +23,12 @@ reports/*.json
 
 # Local runtime artifacts
 guardian/__pycache__/
+
+# Guardian runtime reports
+reports/*.json
+reports/*.jsonl
+
+# Local runtime artifacts
+guardian/__pycache__/
+guardian-security-reports/
+guardian-security-reports.zip
