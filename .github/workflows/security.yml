@@ -30,8 +30,7 @@ jobs:
             -d examples/secure \
             --framework terraform \
             --external-checks-dir custom_checks \
-            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_145,CKV2_AWS_6,CKV_AWS_999
-
+            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_144,CKV_AWS_145,CKV2_AWS_6,CKV2_AWS_61,CKV2_AWS_62,CKV2_AWS_64,CKV_AWS_999
   negative-test:
     name: Prove the insecure example is rejected
     runs-on: ubuntu-latest
@@ -55,8 +54,7 @@ jobs:
             -d examples/insecure \
             --framework terraform \
             --external-checks-dir custom_checks \
-            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_145,CKV2_AWS_6,CKV_AWS_999 \
-            > insecure-scan.log 2>&1
+            --check CKV_AWS_7,CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_21,CKV_AWS_53,CKV_AWS_54,CKV_AWS_55,CKV_AWS_56,CKV_AWS_57,CKV_AWS_144,CKV_AWS_145,CKV2_AWS_6,CKV2_AWS_61,CKV2_AWS_62,CKV2_AWS_64,CKV_AWS_999            > insecure-scan.log 2>&1
           scan_status=$?
           set -e
 

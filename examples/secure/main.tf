@@ -48,6 +48,24 @@ resource "aws_kms_key" "healthcare_data" {
   enable_key_rotation     = true
   deletion_window_in_days = 30
 
+    policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid    = "EnableIAMUserPermissions"
+        Effect = "Allow"
+
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
+
   tags = {
     Project     = "healthcare-devsecops-demo"
     Environment = "demo"
@@ -55,6 +73,10 @@ resource "aws_kms_key" "healthcare_data" {
 }
 
 resource "aws_s3_bucket" "healthcare_data" {
+    #checkov:skip=CKV_AWS_144:Single-region educational prototype; disaster-recovery region is outside current scope.
+    #checkov:skip=CKV2_AWS_61:No approved data-retention policy has been defined for this prototype.
+    #checkov:skip=CKV2_AWS_62:No event notification consumer or monitoring workflow is implemented.
+    #checkov:skip=CKV_AWS_144:This is a single-region educational prototype. No approved disaster-recovery region or replication destination is defined. Cross-region replication is a future enhancement for production use.
   bucket        = var.bucket_name
   force_destroy = false
 
@@ -106,8 +128,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "healthcare_data" 
 # Dedicated destination for S3 server access logs.
 # AWS requires this destination to use SSE-S3 rather than SSE-KMS.
 resource "aws_s3_bucket" "access_logs" {
-  #checkov:skip=CKV_AWS_18:This is the terminal access-log destination; logging it to itself would create recursive logging.
-  #checkov:skip=CKV_AWS_145:AWS S3 server access logging destinations must use SSE-S3; SSE-KMS is not supported for this destination.
+    #checkov:skip=CKV_AWS_144:Single-region educational prototype; disaster-recovery region is outside current scope.
+    #checkov:skip=CKV_AWS_18:This is the terminal access-log destination; logging it to itself would create recursive logging.
+    #checkov:skip=CKV_AWS_145:AWS S3 server access logging destinations must use SSE-S3; SSE-KMS is not supported for this destination.
+    #checkov:skip=CKV2_AWS_61:No approved log-retention policy has been defined for this prototype.
+    #checkov:skip=CKV2_AWS_62:No event notification consumer or monitoring workflow is implemented.
   bucket        = var.log_bucket_name
   force_destroy = false
 
@@ -210,9 +235,68 @@ resource "aws_s3_bucket_policy" "healthcare_data" {
           "${aws_s3_bucket.healthcare_data.arn}/*"
         ]
         Condition = {
-          Bool = { "aws:SecureTransport" = "false" }
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
         }
       }
     ]
   })
+
+  # Enable S3 event delivery to Amazon EventBridge
+resource "aws_s3_bucket_notification" "healthcare_data" {
+  bucket      = aws_s3_bucket.healthcare_data.id
+  eventbridge = true
+}
+
+resource "aws_s3_bucket_notification" "access_logs" {
+  bucket      = aws_s3_bucket.access_logs.id
+  eventbridge = true
+}
+
+# Lifecycle management for the main data bucket
+resource "aws_s3_bucket_lifecycle_configuration" "healthcare_data" {
+  bucket = aws_s3_bucket.healthcare_data.id
+
+  rule {
+    id     = "transition-archive-objects"
+    status = "Enabled"
+
+    filter {
+      prefix = "archive/"
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+  }
+
+  depends_on = [
+    aws_s3_bucket_versioning.healthcare_data
+  ]
+}
+
+# Lifecycle management for access logs
+resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
+
+  rule {
+    id     = "transition-access-logs"
+    status = "Enabled"
+
+    filter {
+      prefix = "healthcare-data/"
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+  }
+
+  depends_on = [
+    aws_s3_bucket_versioning.access_logs
+  ]
+}
 }
